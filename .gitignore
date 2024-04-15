@@ -1,0 +1,5 @@
+*.exe
+*.pem
+users/
+*.pwd
+scripts/

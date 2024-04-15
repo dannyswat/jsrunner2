@@ -7,13 +7,16 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io"
+	"log"
 	"os"
 )
 
 // GenerateECDSAKeyPair generates a new ECDSA key pair.
 func GenerateECDSAKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
+	log.Default().Println("Generating ECDSA key pair")
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
+		log.Default().Println("Failed to generate ECDSA key pair")
 		return nil, nil, err
 	}
 	return privateKey, &privateKey.PublicKey, nil
@@ -26,22 +29,27 @@ func GenerateECDSAKeyAndSave() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	}
 	privateKeyFile, err := os.Create("private.pem")
 	if err != nil {
+		log.Default().Println("Failed to create private.pem")
 		return nil, nil, err
 	}
 	publicKeyFile, err := os.Create("public.pem")
 	if err != nil {
+		log.Default().Println("Failed to create public.pem")
 		return nil, nil, err
 	}
 	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
+		log.Default().Println("Failed to marshal EC private key")
 		return nil, nil, err
 	}
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
+		log.Default().Println("Failed to marshal EC public key")
 		return nil, nil, err
 	}
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes})
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes})
+	log.Default().Println("Saving ECDSA key pair")
 	privateKeyFile.Write(privateKeyPEM)
 	publicKeyFile.Write(publicKeyPEM)
 	return privateKey, publicKey, nil
