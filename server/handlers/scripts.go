@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
@@ -51,6 +52,10 @@ func Get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Script ID is required", http.StatusBadRequest)
 		return
 	}
+	authUserId := r.Context().Value("uid").(string)
+	if authUserId != "" {
+		userId = authUserId
+	}
 	openedFile, err := os.Open("scripts/" + userId + "/" + scriptID)
 	if err != nil {
 		http.Error(w, "Failed to open script", http.StatusInternalServerError)
@@ -69,4 +74,46 @@ func Get(w http.ResponseWriter, r *http.Request) {
 
 	resp := ScriptContent{Key: scriptID, Name: scriptName, Content: string(scriptContent)}
 	render.JSON(w, r, resp)
+}
+
+func Save(w http.ResponseWriter, r *http.Request) {
+	userId := "public"
+	authUserId := r.Context().Value("uid").(string)
+	if authUserId != "" {
+		userId = authUserId
+	}
+	model := &ScriptContent{}
+	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
+		render.Status(r, http.StatusBadRequest)
+		return
+	}
+	openedFile, err := os.Create("scripts/" + userId + "/" + model.Key)
+	if err != nil {
+		http.Error(w, "Failed to open script", http.StatusInternalServerError)
+		return
+	}
+	openedFile.WriteString(model.Name + "\n")
+	openedFile.WriteString(model.Content)
+	openedFile.Close()
+
+	render.Status(r, http.StatusOK)
+}
+
+func Delete(w http.ResponseWriter, r *http.Request) {
+	userId := "public"
+	scriptID := chi.URLParam(r, "id")
+	if scriptID == "" {
+		http.Error(w, "Script ID is required", http.StatusBadRequest)
+		return
+	}
+	authUserId := r.Context().Value("uid").(string)
+	if authUserId != "" {
+		userId = authUserId
+	}
+	err := os.Remove("scripts/" + userId + "/" + scriptID)
+	if err != nil {
+		http.Error(w, "Failed to delete script", http.StatusInternalServerError)
+		return
+	}
+	render.Status(r, http.StatusOK)
 }

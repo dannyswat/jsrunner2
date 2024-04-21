@@ -33,8 +33,11 @@ func main() {
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	router.Get("/", handlers.Index)
-	router.Get("/scripts/list", handlers.List)
+	router.Get("/scripts", handlers.List)
 	router.Get("/scripts/{id}", handlers.Get)
+	router.Post("/scripts", handlers.Save)
+	router.Delete("/scripts/{id}", handlers.Delete)
+
 	router.Post("/auth/login", handlers.Login)
 	router.Post("/auth/register", handlers.Register)
 

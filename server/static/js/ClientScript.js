@@ -17,10 +17,10 @@ function script(value) {
 function input(value) {
 	return textarea('inputText', value);
 }
-function output(value) {
+function output(value, append) {
 	document.getElementById('preview-area').style.display = 'none';
 	document.getElementById('output-area').style.display = 'block';
-	return textarea('outputText', value);
+	return textarea('outputText', append ? textarea('outputText') + value : value);
 }
 
 function ifempty(value) {
@@ -37,15 +37,21 @@ function preview(value) {
 	area.innerHTML = value;
 }
 
-function list() {
-	$.getJSON('/scripts/list', function (res) {
-		var ddl = document.getElementById('scriptList');
-		for (var i in res) {
-			var opt = document.createElement('option');
-			opt.appendChild(document.createTextNode(res[i].name));
-			opt.value = res[i].key;
-			ddl.appendChild(opt);
-		}
+function list(defValue) {
+	return new Promise(function (resolve) {
+		$.getJSON('/scripts', function (res) {
+			var ddl = document.getElementById('scriptList');
+			var origValue = defValue || ddl.options[ddl.selectedIndex].value;
+			while (ddl.options.length > 1) ddl.options.remove(1);
+			for (var i in res) {
+				var opt = document.createElement('option');
+				opt.appendChild(document.createTextNode(res[i].name));
+				opt.value = res[i].key;
+				if (opt.value === origValue) opt.selected = true;
+				ddl.appendChild(opt);
+			}
+			resolve();
+		});
 	});
 }
 
@@ -60,77 +66,54 @@ function clipboard(id) {
 }
 
 function load() {
-	if (!template()) {
-		textarea('scriptKey', '');
-		textarea('scriptName', '');
-		return;
-	}
-	$.getJSON('/scripts/' + template(), function (res) {
-		script(res.script);
-		textarea('scriptKey', res.key);
-		textarea('scriptName', res.name);
-	})
+	return new Promise(function (resolve) {
+		if (!template()) {
+			textarea('scriptKey', '');
+			textarea('scriptName', '');
+			resolve();
+			return;
+		}
+		$.getJSON('/scripts/' + template(), function (res) {
+			script(res.script);
+			textarea('scriptKey', res.key);
+			textarea('scriptName', res.name);
+			resolve();
+		})
+	});
 }
 
 function deleteFile() {
-	if (!template()) return;
-	$.ajax({
-		url: '/scripts/' + template(),
-		method: 'DELETE'
-	}).done(function () {
-		window.location = window.location;
-	}).fail(function (res) {
-		console.log(res);
+	return new Promise(function (resolve) {
+		if (!template()) return;
+		$.ajax({
+			url: '/ClientScript/Delete?key=' + template(),
+			method: 'DELETE'
+		}).done(function () {
+			resolve();
+		}).fail(function (res) {
+			console.log(res);
+			alert(res);
+			resolve();
+		});
 	});
 }
 
 function save() {
-	if (!textarea('scriptKey') || !textarea('scriptName') || !script()) { console.log('Empty data'); return; }
-	$.ajax({
-		url: '/scripts',
-		method: 'POST',
-		data: JSON.stringify({ Key: textarea('scriptKey'), Name: textarea('scriptName'), Script: script() }),
-		contentType: "application/json; charset=utf-8",
-		dataType: "json"
-	}).done(function (res) {
-		window.location = window.location;
-	}).fail(function (res) {
-		console.log(res);
+	return new Promise(function (resolve) {
+		if (!textarea('scriptKey') || !textarea('scriptName') || !script()) { console.log('Empty data'); return; }
+		$.ajax({
+			url: '/scripts',
+			method: 'POST',
+			data: JSON.stringify({ Key: textarea('scriptKey'), Name: textarea('scriptName'), Script: script() }),
+			contentType: "application/json; charset=utf-8",
+			dataType: "json"
+		}).done(function (res) {
+			resolve();
+		}).fail(function (res) {
+			alert(res);
+			resolve();
+		});
 	});
-}
-
-function login() {
-	if (!textarea('username') || !textarea('password')) { console.log('Empty data'); return; }
-	$.ajax({
-		url: '/login',
-		data: JSON.stringify({ username: textarea('username'), password: textarea('password') }),
-		method: 'POST',
-		contentType: "application/json; charset=utf-8",
-		dataType: "json"
-	}).done(function (res) {
-		window.accessToken = res.token;
-	}).fail(function (res) {
-		console.log(res);
-	});
-}
-
-function createUser() {
-	if (!textarea('username') || !textarea('password')) { console.log('Empty data'); return; }
-	$.ajax({
-		url: '/register',
-		data: JSON.stringify({ username: textarea('username'), password: textarea('password') }),
-		method: 'POST',
-		contentType: "application/json; charset=utf-8",
-		dataType: "json"
-	}).done(function (res) {
-		login();
-	}).fail(function (res) {
-		console.log(res);
-	});
-}
-
-function signout() {
-	delete window.accessToken
 }
 
 function execute() {
@@ -141,12 +124,60 @@ function execute() {
 		if (result && result.then) {
 			result.then(function (result) {
 			}).fail(function (err) {
-				output(err);
+				console.log(err);
+				alert(err);
 			});
 		}
 	} catch (e) {
-		output(e);
+		console.log(e);
+		alert(e);
 	}
+}
+
+function login(usr, pwd) {
+	return new Promise(function (resolve, reject) {
+		if ((!usr || !pwd) && (!textarea('username_login') || !textarea('password_login'))) { console.log('Empty data'); return; }
+		$.ajax({
+			url: '/auth/login',
+			data: JSON.stringify({
+				username: usr || textarea('username_login'),
+				password: pwd || textarea('password_login')
+			}),
+			method: 'POST',
+			contentType: "application/json; charset=utf-8",
+			dataType: "json"
+		}).done(function (res) {
+			window.accessToken = res.token;
+			resolve(usr || textarea('username_login'));
+		}).fail(function (res) {
+			console.log(res);
+			reject(res);
+		});
+	});
+}
+
+function createUser() {
+	return new Promise(function (resolve, reject) {
+		if (!textarea('username') || !textarea('password')) { console.log('Empty data'); return; }
+		$.ajax({
+			url: '/auth/register',
+			data: JSON.stringify({ username: textarea('username'), password: textarea('password') }),
+			method: 'POST',
+			contentType: "application/json; charset=utf-8",
+			dataType: "json"
+		}).done(function (res) {
+			login(textarea('username'), textarea('password')).then(function (name) {
+				resolve(name);
+			});
+		}).fail(function (res) {
+			console.log(res);
+			reject(res);
+		});
+	});
+}
+
+function signout() {
+	delete window.accessToken
 }
 
 $(function () {
