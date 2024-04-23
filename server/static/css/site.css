@@ -54,3 +54,7 @@ body {
   height: 60px;
   line-height: 60px; /* Vertically center the text there */
 }
+
+.logoutButton { display:none; }
+body.loggedin .loginButton, body.loggedin .regButton { display:none; }
+body.loggedin li.logoutButton { display:list-item; }

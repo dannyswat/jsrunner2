@@ -4,16 +4,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>[public]- JSRunner</title>
+    <title>[public] - JSRunner 2</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="static/css/site.css" />
 </head>
 
 <body>
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">JSRunner</a>
+                <a class="navbar-brand" href="/">JSRunner</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse"
                     aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -21,19 +21,18 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home"
-                                asp-action="Index">Script</a>
+                            <a class="nav-link text-dark" href="/"">Script</a>
                         </li>
                         <li class="nav-item loginButton">
                             <a class="nav-link text-dark" href="javascript:void(0)" data-toggle="modal"
-                                data-target="#loginModel">Register</a>
+                                data-target="#loginModel">Login</a>
                         </li>
                         <li class="nav-item regButton">
                             <a class="nav-link text-dark" href="javascript:void(0)" data-toggle="modal"
                                 data-target="#createUserModel">Register</a>
                         </li>
                         <li class="nav-item logoutButton">
-                            <a class="nav-link text-dark" href="/" onclick="signout();return false">Logout</a>
+                            <a class="nav-link text-dark" href="/" onclick="signout();list();return false">Logout</a>
                         </li>
                     </ul>
                 </div>
@@ -42,7 +41,101 @@
     </header>
     <div class="container-fluid">
         <main role="main" class="pb-3">
-            @RenderBody()
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css"
+                integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ=="
+                crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/3024-day.min.css"
+                integrity="sha512-18oLgbbfP5aJEwUUaEBLD/e5HnJtTuPOmdevOgMWL8wdGn6zNVLY+yAgOupSfrbdT174IRJDdak3XeBqdYy7Jw=="
+                crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <style type="text/css">
+                .CodeMirror {
+                    height: 494px;
+                    min-height: 123px;
+                    width: 100%;
+                    max-width: 100%;
+                }
+            
+                @media screen and (max-width: 767px) {
+                    .CodeMirror {
+                        height: auto;
+                    }
+                }
+            </style>
+            <div class="text-center input-group container-fluid">
+                <div id="script-area" class="col-md form-group text-left">
+                    <textarea id="script" class="form-control rounded-0" rows="20"
+                        placeholder="Javascript placed here..."></textarea>
+                    <select id="scriptList" onchange="loading(document.getElementById('btnExecute'), load)">
+                        <option value="">Custom Script</option>
+                    </select>
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#saveScriptModel">Save</button>
+                    <button type="button" class="btn btn-danger" data-toggle="modal"
+                        data-target="#confirmDeleteModel">Delete</button>
+                </div>
+                <div id="input-area" class="col-md form-group">
+                    <textarea id="inputText" class="form-control rounded-0" rows="20"
+                        placeholder="Input (calling input() can retrieve the input value)"></textarea>
+                    <button onclick="execute()" id="btnExecute" class="btn btn-primary">Execute</button>
+                </div>
+                <div id="output-area" class="col-md form-group">
+                    <textarea id="outputText" class="form-control rounded-0" rows="20"
+                        placeholder="Output (calling output(value) can display the output value)"></textarea>
+                    <button onclick="clipboard('outputText')" class="btn btn-secondary">Copy</button>
+                </div>
+                <div id="preview-area" class="col-md form-group" style="display:none"></div>
+            </div>
+            <div class="modal fade" id="confirmDeleteModel" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModelLabel"
+                aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLabel">Delete Script</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            Are you confirm to delete the script? Deleted script cannot be recovered.
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-danger"
+                                onclick="loading(this, deleteFile).then(function () { $('#confirmDeleteModel').modal('hide'); list(); })">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal fade" id="saveScriptModel" tabindex="-1" role="dialog" aria-labelledby="saveScriptModelLabel"
+                aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLabel">Save Script</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form>
+                                <div class="form-group">
+                                    <label for="scriptKey" class="col-form-label">Key:</label>
+                                    <input type="text" class="form-control" id="scriptKey" pattern="^[A-Za-z0-9_\-]{1,30}$">
+                                </div>
+                                <div class="form-group">
+                                    <label for="scriptName" class="col-form-label">Name:</label>
+                                    <input type="text" class="form-control" id="scriptName">
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary"
+                                onclick="loading(this, save).then(function () { $('#saveScriptModel').modal('hide'); list(textarea('scriptKey')); })">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="alerts" style="position:fixed;right:20px; bottom:20px"></div>
         </main>
     </div>
 
@@ -65,18 +158,18 @@
                     <form>
                         <div class="form-group">
                             <label for="username" class="col-form-label">Username:</label>
-                            <input type="text" class="form-control" id="username" pattern="^[A-Za-z0-9_-]{1,20}$">
+                            <input type="text" class="form-control" id="username" autocomplete="off" pattern="^[A-Za-z0-9_\-]{1,20}$">
                         </div>
                         <div class="form-group">
                             <label for="password" class="col-form-label">Password:</label>
-                            <input type="password" class="form-control" id="password">
+                            <input type="password" class="form-control" id="password" autocomplete="off">
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary"
-                        onclick="loading(this, createUser).then(function () { $('#createUserModel').modal('hide'); })">Register</button>
+                        onclick="loading(this, createUser).then(function () { $('#createUserModel').modal('hide'); list(); }).catch(function (res) { alert(res); })">Register</button>
                 </div>
             </div>
         </div>
@@ -95,7 +188,7 @@
                     <form>
                         <div class="form-group">
                             <label for="username_login" class="col-form-label">Username:</label>
-                            <input type="text" class="form-control" id="username_login" pattern="^[A-Za-z0-9_-]{1,20}$">
+                            <input type="text" class="form-control" id="username_login" pattern="^[A-Za-z0-9_\-]{1,20}$">
                         </div>
                         <div class="form-group">
                             <label for="password_login" class="col-form-label">Password:</label>
@@ -105,7 +198,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="loading(this, login).then(function () { $('#loginModel').modal('hide'); })">Login</button>
+                    <button type="button" class="btn btn-primary" onclick="loading(this, login).then(function () { $('#loginModel').modal('hide'); list(); })">Login</button>
                 </div>
             </div>
         </div>
@@ -116,9 +209,32 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"
         integrity="sha384-xrRywqdh3PHs8keKZN+8zzc5TX0GRTLCcmivcbNJWm2rs5C8PRhcEn3czEjhAO9o">
         </script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="static/js/site.js"></script>
 
-    @RenderSection("Scripts", required: false)
+    <script type="text/javascript" src="static/js/ClientScript.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"
+        integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/javascript/javascript.min.js"
+        integrity="sha512-I6CdJdruzGtvDyvdO4YsiAq+pkWf2efgd1ZUSK2FnM/u2VuRASPC7GowWQrWyjxCZn6CT89s3ddGI+be0Ak9Fg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script type="text/javascript">
+        var editor = CodeMirror.fromTextArea(document.getElementById('script'), {
+            lineNumbers: true,
+            mode: 'javascript'
+        });
+        var plaintextarea = window.textarea;
+
+        textarea = function (key, value) {
+            if (key === 'script') {
+                if (typeof (value) !== 'undefined')
+                    editor.setValue(value);
+                return editor.getValue();
+            }
+            return plaintextarea(key, value);
+        }
+    </script>
 </body>
 
 </html>

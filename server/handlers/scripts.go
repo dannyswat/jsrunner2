@@ -24,6 +24,10 @@ type ScriptContent struct {
 
 func List(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
+	authUserId := r.Context().Value("uid")
+	if authUserId != nil && authUserId.(string) != "" {
+		userId = authUserId.(string)
+	}
 	files, err := os.ReadDir("scripts/" + userId)
 	if err != nil {
 		http.Error(w, "Failed to list scripts", http.StatusInternalServerError)
@@ -52,9 +56,9 @@ func Get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Script ID is required", http.StatusBadRequest)
 		return
 	}
-	authUserId := r.Context().Value("uid").(string)
-	if authUserId != "" {
-		userId = authUserId
+	authUserId := r.Context().Value("uid")
+	if authUserId != nil && authUserId.(string) != "" {
+		userId = authUserId.(string)
 	}
 	openedFile, err := os.Open("scripts/" + userId + "/" + scriptID)
 	if err != nil {
@@ -78,9 +82,9 @@ func Get(w http.ResponseWriter, r *http.Request) {
 
 func Save(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
-	authUserId := r.Context().Value("uid").(string)
-	if authUserId != "" {
-		userId = authUserId
+	authUserId := r.Context().Value("uid")
+	if authUserId != nil && authUserId.(string) != "" {
+		userId = authUserId.(string)
 	}
 	model := &ScriptContent{}
 	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
@@ -106,9 +110,9 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Script ID is required", http.StatusBadRequest)
 		return
 	}
-	authUserId := r.Context().Value("uid").(string)
-	if authUserId != "" {
-		userId = authUserId
+	authUserId := r.Context().Value("uid")
+	if authUserId != nil && authUserId.(string) != "" {
+		userId = authUserId.(string)
 	}
 	err := os.Remove("scripts/" + userId + "/" + scriptID)
 	if err != nil {

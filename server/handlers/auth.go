@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -33,7 +34,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Open("users/" + model.UserName + ".pwd")
+	pwdFile, err := os.Open("users/" + strings.ToLower(model.UserName) + ".pwd")
 	if err != nil {
 		render.Status(r, http.StatusUnauthorized)
 		return
@@ -51,7 +52,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"uid": model.UserName,
+		"uid": strings.ToLower(model.UserName),
 		"exp": time.Now().Add(time.Hour * 12).Unix(),
 		"iat": time.Now().Unix(),
 	})
@@ -67,6 +68,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		return
+	}
+	if _, err := os.Stat("scripts/" + strings.ToLower(model.UserName)); err != nil {
+		os.Mkdir("scripts/"+strings.ToLower(model.UserName), 0755)
 	}
 	token := &LoginToken{
 		Token: jwtTokenString,
@@ -85,16 +89,16 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	if len(model.UserName) == 0 || len(model.Password) == 0 {
+	if len(model.UserName) == 0 || len(model.Password) == 0 || strings.ToLower(model.UserName) == "public" {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	_, err := os.Stat("users/" + model.UserName + ".pwd")
+	_, err := os.Stat("users/" + strings.ToLower(model.UserName) + ".pwd")
 	if err == nil {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Create("users/" + model.UserName + ".pwd")
+	pwdFile, err := os.Create("users/" + strings.ToLower(model.UserName) + ".pwd")
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		return
@@ -106,6 +110,10 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 	pwdFile.Write([]byte(hash))
 	pwdFile.Close()
+
+	if _, err := os.Stat("scripts/" + strings.ToLower(model.UserName)); err != nil {
+		os.Mkdir("scripts/"+strings.ToLower(model.UserName), 0755)
+	}
 
 	render.Status(r, http.StatusCreated)
 }

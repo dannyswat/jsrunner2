@@ -134,52 +134,6 @@ function execute() {
 	}
 }
 
-function login(usr, pwd) {
-	return new Promise(function (resolve, reject) {
-		if ((!usr || !pwd) && (!textarea('username_login') || !textarea('password_login'))) { console.log('Empty data'); return; }
-		$.ajax({
-			url: '/auth/login',
-			data: JSON.stringify({
-				username: usr || textarea('username_login'),
-				password: pwd || textarea('password_login')
-			}),
-			method: 'POST',
-			contentType: "application/json; charset=utf-8",
-			dataType: "json"
-		}).done(function (res) {
-			window.accessToken = res.token;
-			resolve(usr || textarea('username_login'));
-		}).fail(function (res) {
-			console.log(res);
-			reject(res);
-		});
-	});
-}
-
-function createUser() {
-	return new Promise(function (resolve, reject) {
-		if (!textarea('username') || !textarea('password')) { console.log('Empty data'); return; }
-		$.ajax({
-			url: '/auth/register',
-			data: JSON.stringify({ username: textarea('username'), password: textarea('password') }),
-			method: 'POST',
-			contentType: "application/json; charset=utf-8",
-			dataType: "json"
-		}).done(function (res) {
-			login(textarea('username'), textarea('password')).then(function (name) {
-				resolve(name);
-			});
-		}).fail(function (res) {
-			console.log(res);
-			reject(res);
-		});
-	});
-}
-
-function signout() {
-	delete window.accessToken
-}
-
 $(function () {
 	list();
 
