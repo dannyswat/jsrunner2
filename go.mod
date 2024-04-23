@@ -1,6 +1,6 @@
 module jsrunner-server
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/alexedwards/argon2id v1.0.0
