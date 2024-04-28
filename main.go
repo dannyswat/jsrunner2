@@ -41,5 +41,5 @@ func main() {
 	router.Post("/auth/login", handlers.Login)
 	router.Post("/auth/register", handlers.Register)
 
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":5000", router)
 }
