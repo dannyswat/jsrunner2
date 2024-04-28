@@ -10,6 +10,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const UserIdKey = "uid"
+
 type JWTContext struct {
 	publicKey *ecdsa.PublicKey
 }
@@ -46,7 +48,8 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
-			userCtx := context.WithValue(r.Context(), "uid", jwtToken.Claims.(jwt.MapClaims)["uid"])
+			//lint:ignore SA1029 No collision with other packages
+			userCtx := context.WithValue(r.Context(), UserIdKey, jwtToken.Claims.(jwt.MapClaims)[UserIdKey])
 			next.ServeHTTP(w, r.WithContext(userCtx))
 		} else {
 			next.ServeHTTP(w, r)

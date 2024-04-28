@@ -12,7 +12,10 @@ import (
 	"github.com/go-chi/render"
 	"github.com/golang-jwt/jwt/v5"
 
+	"jsrunner-server/config"
+	"jsrunner-server/middlewares"
 	"jsrunner-server/security"
+	"jsrunner-server/utils"
 )
 
 type LoginRequest struct {
@@ -34,7 +37,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Open("users/" + strings.ToLower(model.UserName) + ".pwd")
+	pwdFile, err := os.Open(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
 	if err != nil {
 		render.Status(r, http.StatusUnauthorized)
 		return
@@ -52,9 +55,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"uid": strings.ToLower(model.UserName),
-		"exp": time.Now().Add(time.Hour * 12).Unix(),
-		"iat": time.Now().Unix(),
+		middlewares.UserIdKey: strings.ToLower(model.UserName),
+		"exp":                 time.Now().Add(time.Hour * 12).Unix(),
+		"iat":                 time.Now().Unix(),
 	})
 	privateKey, _, err := security.LoadECDSAKeyPair()
 	if err != nil {
@@ -69,9 +72,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusInternalServerError)
 		return
 	}
-	if _, err := os.Stat("scripts/" + strings.ToLower(model.UserName)); err != nil {
-		os.Mkdir("scripts/"+strings.ToLower(model.UserName), 0755)
-	}
+	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName))
+
 	token := &LoginToken{
 		Token: jwtTokenString,
 	}
@@ -93,12 +95,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	_, err := os.Stat("users/" + strings.ToLower(model.UserName) + ".pwd")
+	_, err := os.Stat(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
 	if err == nil {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Create("users/" + strings.ToLower(model.UserName) + ".pwd")
+	pwdFile, err := os.Create(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		return
@@ -111,9 +113,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	pwdFile.Write([]byte(hash))
 	pwdFile.Close()
 
-	if _, err := os.Stat("scripts/" + strings.ToLower(model.UserName)); err != nil {
-		os.Mkdir("scripts/"+strings.ToLower(model.UserName), 0755)
-	}
+	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName))
 
 	render.Status(r, http.StatusCreated)
 }

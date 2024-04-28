@@ -1,8 +1,10 @@
 package main
 
 import (
+	"jsrunner-server/config"
 	"jsrunner-server/handlers"
 	"jsrunner-server/security"
+	"jsrunner-server/utils"
 	"log"
 	"net/http"
 	"os"
@@ -16,15 +18,12 @@ func main() {
 	if _, _, err := security.LoadECDSAKeyPair(); err != nil {
 		security.GenerateECDSAKeyAndSave()
 	}
-	if _, err := os.Stat("users"); err != nil {
-		os.Mkdir("users", 0755)
+	if config.DataStorePath != "" {
+		utils.CreateFolderIfNotExists(config.DataStorePath)
 	}
-	if _, err := os.Stat("scripts"); err != nil {
-		os.Mkdir("scripts", 0755)
-	}
-	if _, err := os.Stat("scripts/public"); err != nil {
-		os.Mkdir("scripts/public", 0755)
-	}
+	utils.CreateFolderIfNotExists(config.DataStorePath + config.UserPath)
+	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath)
+	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + "public/")
 
 	router := chi.NewRouter()
 
