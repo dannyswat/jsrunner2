@@ -4,3 +4,4 @@ users/
 *.pwd
 scripts/
 build/
+data/
