@@ -1,3 +1,3 @@
-go build -o bin/application
-cp -r static bin
-cp script.html bin
+go build -o build/application
+cp -r static build
+cp script.html build
