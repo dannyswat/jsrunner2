@@ -15,8 +15,8 @@ COPY handlers/*.go ./handlers/
 COPY middlewares/*.go ./middlewares/
 COPY security/*.go ./security/
 COPY main.go ./
-COPY *.html  /
-COPY static/ /static/
+COPY *.html  ./
+COPY static/ ./static/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /jsrunner-server
 
