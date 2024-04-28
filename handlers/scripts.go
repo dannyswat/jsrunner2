@@ -22,7 +22,7 @@ type ScriptContent struct {
 	Content string `json:"script"`
 }
 
-func List(w http.ResponseWriter, r *http.Request) {
+func ListScripts(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
 	authUserId := r.Context().Value("uid")
 	if authUserId != nil && authUserId.(string) != "" {
@@ -49,7 +49,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, scriptList)
 }
 
-func Get(w http.ResponseWriter, r *http.Request) {
+func GetScript(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
 	scriptID := chi.URLParam(r, "id")
 	if scriptID == "" {
@@ -80,7 +80,7 @@ func Get(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, resp)
 }
 
-func Save(w http.ResponseWriter, r *http.Request) {
+func SaveScript(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
 	authUserId := r.Context().Value("uid")
 	if authUserId != nil && authUserId.(string) != "" {
@@ -103,7 +103,7 @@ func Save(w http.ResponseWriter, r *http.Request) {
 	render.Status(r, http.StatusOK)
 }
 
-func Delete(w http.ResponseWriter, r *http.Request) {
+func DeleteScript(w http.ResponseWriter, r *http.Request) {
 	userId := "public"
 	scriptID := chi.URLParam(r, "id")
 	if scriptID == "" {
