@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.21
+FROM golang:1.19
 
 # Set destination for COPY
 WORKDIR /app
@@ -11,9 +11,12 @@ RUN go mod download
 
 # Copy the source code. Note the slash at the end, as explained in
 # https://docs.docker.com/reference/dockerfile/#copy
-COPY *.go ./
-COPY *.html ./
-COPY static/*.* ./static/
+COPY handlers/*.go ./handlers/
+COPY middlewares/*.go ./middlewares/
+COPY security/*.go ./security/
+COPY main.go ./
+COPY *.html  /
+COPY static/ /static/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /jsrunner-server
 
