@@ -17,3 +17,8 @@ A simple web app to run javascript locally with online script storage. You can c
 - Allow self registration
 - Abandone Basic Authentication (because my company blocks basic authentication)
 - Still using jQuery because I am lazy to change
+
+## Docker (local)
+docker build . --tag jsrunner2
+docker volume create jsrunner-data
+docker run -d -p8080:8080 --mount source=jsrunner-data,target=/data --name JSRunner2 jsrunner2

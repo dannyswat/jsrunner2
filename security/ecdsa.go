@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io"
+	"jsrunner-server/config"
 	"log"
 	"os"
 )
@@ -27,12 +28,12 @@ func GenerateECDSAKeyAndSave() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	privateKeyFile, err := os.Create("private.pem")
+	privateKeyFile, err := os.Create(config.DataStorePath + "private.pem")
 	if err != nil {
 		log.Default().Println("Failed to create private.pem")
 		return nil, nil, err
 	}
-	publicKeyFile, err := os.Create("public.pem")
+	publicKeyFile, err := os.Create(config.DataStorePath + "public.pem")
 	if err != nil {
 		log.Default().Println("Failed to create public.pem")
 		return nil, nil, err
@@ -56,11 +57,11 @@ func GenerateECDSAKeyAndSave() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 }
 
 func LoadECDSAKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
-	privateKeyFile, err := os.Open("private.pem")
+	privateKeyFile, err := os.Open(config.DataStorePath + "private.pem")
 	if err != nil {
 		return nil, nil, err
 	}
-	publicKeyFile, err := os.Open("public.pem")
+	publicKeyFile, err := os.Open(config.DataStorePath + "public.pem")
 	if err != nil {
 		return nil, nil, err
 	}

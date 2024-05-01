@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.21-alpine
+FROM golang:1.21-alpine as base
 
 # Set destination for COPY
-WORKDIR /app
+WORKDIR /gobuild
 
 # Download Go modules
 COPY go.mod go.sum ./
@@ -21,6 +21,12 @@ COPY *.html  ./
 COPY static/ ./static/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /jsrunner-server
+
+FROM gcr.io/distroless/static-debian11
+
+COPY --from=base /jsrunner-server /jsrunner-server
+COPY --from=base /gobuild/*.html /
+COPY --from=base /gobuild/static/ /static/
 
 # Optional:
 # To bind to a TCP port, runtime parameters must be supplied to the docker command.
