@@ -87,6 +87,10 @@ func SaveScript(w http.ResponseWriter, r *http.Request) {
 	if authUserId != nil && authUserId.(string) != "" {
 		userId = authUserId.(string)
 	}
+	if userId == config.PublicUser {
+		http.Error(w, "Public user cannot save scripts", http.StatusForbidden)
+		return
+	}
 	model := &ScriptContent{}
 	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
 		render.Status(r, http.StatusBadRequest)
@@ -114,6 +118,10 @@ func DeleteScript(w http.ResponseWriter, r *http.Request) {
 	authUserId := r.Context().Value("uid")
 	if authUserId != nil && authUserId.(string) != "" {
 		userId = authUserId.(string)
+	}
+	if userId == config.PublicUser {
+		http.Error(w, "Public user cannot delete scripts", http.StatusForbidden)
+		return
 	}
 	err := os.Remove(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID)
 	if err != nil {
