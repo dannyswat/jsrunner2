@@ -18,12 +18,13 @@ func main() {
 	if _, _, err := security.LoadECDSAKeyPair(); err != nil {
 		security.GenerateECDSAKeyAndSave()
 	}
-	if config.DataStorePath != "" {
-		utils.CreateFolderIfNotExists(config.DataStorePath)
+	dataPath := config.GetDataStorePath()
+	if dataPath != "" {
+		utils.CreateFolderIfNotExists(dataPath)
 	}
-	utils.CreateFolderIfNotExists(config.DataStorePath + config.UserPath)
-	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath)
-	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + "public/")
+	utils.CreateFolderIfNotExists(dataPath + config.UserPath)
+	utils.CreateFolderIfNotExists(dataPath + config.ScriptPath)
+	utils.CreateFolderIfNotExists(dataPath + config.ScriptPath + "public/")
 
 	router := chi.NewRouter()
 
@@ -47,5 +48,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	log.Default().Println("Server starting on port " + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }

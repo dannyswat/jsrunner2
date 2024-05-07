@@ -22,3 +22,7 @@ A simple web app to run javascript locally with online script storage. You can c
 docker build . --tag jsrunner2
 docker volume create jsrunner-data
 docker run -d -p8080:8080 --mount source=jsrunner-data,target=/data --name JSRunner2 jsrunner2
+
+## Docker (Publish)
+docker build . --tag dannyswat/jsrunner2:v0
+docker push dannyswat/jsrunner2:v0

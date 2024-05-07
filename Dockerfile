@@ -22,7 +22,7 @@ COPY static/ ./static/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /jsrunner-server
 
-FROM gcr.io/distroless/static-debian11
+FROM centos:8
 
 COPY --from=base /jsrunner-server /jsrunner-server
 COPY --from=base /gobuild/*.html /
