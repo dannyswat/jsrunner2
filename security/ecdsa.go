@@ -10,6 +10,7 @@ import (
 	"jsrunner-server/config"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 // GenerateECDSAKeyPair generates a new ECDSA key pair.
@@ -51,11 +52,11 @@ func GenerateECDSAKeyAndSave() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyBytes})
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes})
 	log.Println("Saving ECDSA key pair")
-	if err := os.WriteFile(config.GetDataStorePath()+"private.pem", privateKeyPEM, 0644); err != nil {
+	if err := os.WriteFile(filepath.FromSlash(config.GetDataStorePath()+"private.pem"), privateKeyPEM, 0644); err != nil {
 		log.Println("Failed to save private.pem")
 		return nil, nil, err
 	}
-	if err := os.WriteFile(config.GetDataStorePath()+"public.pem", publicKeyPEM, 0644); err != nil {
+	if err := os.WriteFile(filepath.FromSlash(config.GetDataStorePath()+"public.pem"), publicKeyPEM, 0644); err != nil {
 		log.Println("Failed to save public.pem")
 		return nil, nil, err
 
@@ -66,11 +67,11 @@ func GenerateECDSAKeyAndSave() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 }
 
 func LoadECDSAKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
-	privateKeyFile, err := os.Open(config.GetDataStorePath() + "private.pem")
+	privateKeyFile, err := os.Open(filepath.FromSlash(config.GetDataStorePath() + "private.pem"))
 	if err != nil {
 		return nil, nil, err
 	}
-	publicKeyFile, err := os.Open(config.GetDataStorePath() + "public.pem")
+	publicKeyFile, err := os.Open(filepath.FromSlash(config.GetDataStorePath() + "public.pem"))
 	if err != nil {
 		return nil, nil, err
 	}

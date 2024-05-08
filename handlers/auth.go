@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Open(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
+	pwdFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err != nil {
 		render.Status(r, http.StatusUnauthorized)
 		return
@@ -72,7 +73,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusInternalServerError)
 		return
 	}
-	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName))
+	utils.CreateFolderIfNotExists(filepath.FromSlash(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName)))
 
 	token := &LoginToken{
 		Token: jwtTokenString,
@@ -95,12 +96,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	_, err := os.Stat(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
+	_, err := os.Stat(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err == nil {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	pwdFile, err := os.Create(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd")
+	pwdFile, err := os.Create(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		return
@@ -113,7 +114,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	pwdFile.Write([]byte(hash))
 	pwdFile.Close()
 
-	utils.CreateFolderIfNotExists(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName))
+	utils.CreateFolderIfNotExists(filepath.FromSlash(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName)))
 
 	render.Status(r, http.StatusCreated)
 }

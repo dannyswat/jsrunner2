@@ -6,6 +6,7 @@ import (
 	"jsrunner-server/config"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -29,14 +30,14 @@ func ListScripts(w http.ResponseWriter, r *http.Request) {
 	if authUserId != nil && authUserId.(string) != "" {
 		userId = authUserId.(string)
 	}
-	files, err := os.ReadDir(config.DataStorePath + config.ScriptPath + userId)
+	files, err := os.ReadDir(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId))
 	if err != nil {
 		http.Error(w, "Failed to list scripts", http.StatusInternalServerError)
 		return
 	}
 	var scriptList []ScriptMeta
 	for _, file := range files {
-		openedFile, err := os.Open(config.DataStorePath + config.ScriptPath + userId + "/" + file.Name())
+		openedFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + file.Name()))
 		if err != nil {
 			http.Error(w, "Failed to open script", http.StatusInternalServerError)
 			return
@@ -61,7 +62,7 @@ func GetScript(w http.ResponseWriter, r *http.Request) {
 	if authUserId != nil && authUserId.(string) != "" {
 		userId = authUserId.(string)
 	}
-	openedFile, err := os.Open(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID)
+	openedFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID))
 	if err != nil {
 		http.Error(w, "Failed to open script", http.StatusInternalServerError)
 		return
@@ -96,7 +97,7 @@ func SaveScript(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
-	openedFile, err := os.Create(config.DataStorePath + config.ScriptPath + userId + "/" + model.Key)
+	openedFile, err := os.Create(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + model.Key))
 	if err != nil {
 		http.Error(w, "Failed to open script", http.StatusInternalServerError)
 		return
@@ -123,7 +124,7 @@ func DeleteScript(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Public user cannot delete scripts", http.StatusForbidden)
 		return
 	}
-	err := os.Remove(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID)
+	err := os.Remove(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID))
 	if err != nil {
 		http.Error(w, "Failed to delete script", http.StatusInternalServerError)
 		return
