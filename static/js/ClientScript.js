@@ -86,13 +86,14 @@ function deleteFile() {
 	return new Promise(function (resolve) {
 		if (!template()) return;
 		$.ajax({
-			url: '/ClientScript/Delete?key=' + template(),
+			url: '/scripts/' + template(),
 			method: 'DELETE'
 		}).done(function () {
+			alert('Deleted successfully!', 'Message');
 			resolve();
-		}).fail(function (res) {
+		}).fail(function (res, err) {
 			console.log(res);
-			alert(res);
+			alert(err.message || err);
 			resolve();
 		});
 	});
@@ -100,17 +101,21 @@ function deleteFile() {
 
 function save() {
 	return new Promise(function (resolve) {
-		if (!textarea('scriptKey') || !textarea('scriptName') || !script()) { console.log('Empty data'); return; }
+		if (!textarea('scriptKey') || !textarea('scriptName') || !script()) { throw 'Empty data'; }
+		if (!(textarea('scriptKey')).match(/^[A-Za-z0-9_-]{1,30}$/)) { throw 'Invalid key!'; }
+		if (textarea('scriptName').length > 100) { throw 'Invalid name!'; }
 		$.ajax({
 			url: '/scripts',
 			method: 'POST',
 			data: JSON.stringify({ Key: textarea('scriptKey'), Name: textarea('scriptName'), Script: script() }),
 			contentType: "application/json; charset=utf-8",
 			dataType: "json"
-		}).done(function (res) {
+		}).done(function () {
+			alert('Saved successfully!', 'Message');
 			resolve();
-		}).fail(function (res) {
-			alert(res);
+		}).fail(function (res, err) {
+			console.log(res);
+			alert(err.message || err);
 			resolve();
 		});
 	});
@@ -122,11 +127,14 @@ function execute() {
 		var result = (1, eval)(script()); // return a promise
 
 		if (result && result.then) {
-			result.then(function (result) {
-			}).fail(function (err) {
+			result.then(function () {
+				alert('Executed successfully!', 'Message');
+			}).fail(function (resp, err) {
 				console.log(err);
-				alert(err);
+				alert(err.message);
 			});
+		} else {
+			alert('Executed successfully!', 'Message');
 		}
 	} catch (e) {
 		console.log(e);
