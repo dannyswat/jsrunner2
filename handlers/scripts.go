@@ -68,7 +68,7 @@ func ListScripts(w http.ResponseWriter, r *http.Request) {
 		}
 		scriptName = strings.TrimLeft(scriptName, "/")
 
-		scriptList = append(scriptList, ScriptMeta{Key: strings.TrimRight(file.Name(), ".js"), Name: scriptName})
+		scriptList = append(scriptList, ScriptMeta{Key: strings.TrimSuffix(file.Name(), ".js"), Name: scriptName})
 	}
 	render.JSON(w, r, scriptList)
 }
