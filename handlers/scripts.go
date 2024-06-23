@@ -63,6 +63,10 @@ func ListScripts(w http.ResponseWriter, r *http.Request) {
 		scanner := bufio.NewScanner(openedFile)
 		scanner.Scan()
 		scriptName := scanner.Text()
+		if scriptName == "DELETED" {
+			continue
+		}
+		scriptName = strings.TrimLeft(scriptName, "/")
 
 		scriptList = append(scriptList, ScriptMeta{Key: strings.TrimRight(file.Name(), ".js"), Name: scriptName})
 	}
@@ -89,6 +93,10 @@ func GetScript(w http.ResponseWriter, r *http.Request) {
 	scanner.Scan()
 
 	scriptName := scanner.Text()
+	if scriptName == "DELETED" {
+		errorResponse(w, r, "Script not found", http.StatusNotFound)
+	}
+	scriptName = strings.TrimLeft(scriptName, "/")
 	contentLine := make([]string, 0)
 	for scanner.Scan() {
 		contentLine = append(contentLine, scanner.Text())
@@ -128,7 +136,7 @@ func SaveScript(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, r, "Failed to open script", http.StatusInternalServerError)
 		return
 	}
-	openedFile.WriteString(model.Name + "\n")
+	openedFile.WriteString("//" + model.Name + "\n")
 	openedFile.WriteString(model.Content)
 	openedFile.Close()
 
@@ -150,10 +158,16 @@ func DeleteScript(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, r, "Public user cannot delete script", http.StatusForbidden)
 		return
 	}
+
 	err := os.Remove(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID + ".js"))
 	if err != nil {
-		errorResponse(w, r, "Failed to delete script", http.StatusInternalServerError)
-		return
+		openedFile, ferr := os.Create(filepath.FromSlash(config.DataStorePath + config.ScriptPath + userId + "/" + scriptID + ".js"))
+		if ferr != nil {
+			errorResponse(w, r, "Failed to delete script", http.StatusInternalServerError)
+			return
+		}
+		openedFile.WriteString("DELETED")
+		openedFile.Close()
 	}
 	render.JSON(w, r, models.SuccessResponse())
 }

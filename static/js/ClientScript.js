@@ -51,6 +51,10 @@ function list(defValue) {
 				ddl.appendChild(opt);
 			}
 			resolve();
+		}, function (res) {
+			console.log(res);
+			alert('Unable to retrieve the script list');
+			resolve();
 		});
 	});
 }
@@ -78,6 +82,10 @@ function load() {
 			textarea('scriptKey', res.key);
 			textarea('scriptName', res.name);
 			resolve();
+		}, function (res) {
+			console.log(res);
+			alert('Unable to retrieve the script ' + template());
+			resolve();
 		})
 	});
 }
@@ -93,7 +101,7 @@ function deleteFile() {
 			resolve();
 		}).fail(function (res, err) {
 			console.log(res);
-			alert(err.message || err);
+			alert(res.responseJSON?.message || err);
 			resolve();
 		});
 	});
@@ -115,7 +123,7 @@ function save() {
 			resolve();
 		}).fail(function (res, err) {
 			console.log(res);
-			alert(err.message || err);
+			alert(res.responseJSON?.message || err);
 			resolve();
 		});
 	});
