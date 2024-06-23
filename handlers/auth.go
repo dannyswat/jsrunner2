@@ -78,6 +78,17 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	token := &LoginToken{
 		Token: jwtTokenString,
 	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth",
+		Value:    jwtTokenString,
+		HttpOnly: true,
+		Path:     "/",
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:  "user",
+		Value: strings.ToLower(model.UserName),
+		Path:  "/",
+	})
 	render.JSON(w, r, token)
 }
 

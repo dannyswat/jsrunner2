@@ -32,8 +32,27 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 		}
 
 		authHeader := r.Header.Get("Authorization")
+		authCookie, _ := r.Cookie("auth")
+		cookieUserId, _ := r.Cookie("user")
+		jwtTokenString := ""
 		if authHeader != "" {
-			jwtTokenString := authHeader[7:]
+			jwtTokenString = authHeader[7:]
+		} else if cookieUserId != nil && authCookie != nil {
+			jwtTokenString = authCookie.Value
+		} else {
+			log.Println("Anonymous")
+			if authCookie != nil {
+				http.SetCookie(w, &http.Cookie{
+					Name:   "auth",
+					Value:  "",
+					MaxAge: -1,
+				})
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if jwtTokenString != "" {
+
 			jwtToken, err := jwt.Parse(jwtTokenString, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 					return nil, jwt.ErrSignatureInvalid
@@ -48,8 +67,26 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
+			authUserId := jwtToken.Claims.(jwt.MapClaims)[UserIdKey].(string)
+			log.Println("Authenticated:" + authUserId)
+
+			if authUserId != cookieUserId.Value {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				http.SetCookie(w, &http.Cookie{
+					Name:   "auth",
+					Value:  "",
+					MaxAge: -1,
+				})
+				http.SetCookie(w, &http.Cookie{
+					Name:   "user",
+					Value:  "",
+					MaxAge: -1,
+				})
+				return
+			}
+
 			//lint:ignore SA1029 No collision with other packages
-			userCtx := context.WithValue(r.Context(), UserIdKey, jwtToken.Claims.(jwt.MapClaims)[UserIdKey])
+			userCtx := context.WithValue(r.Context(), UserIdKey, authUserId)
 			next.ServeHTTP(w, r.WithContext(userCtx))
 		} else {
 			next.ServeHTTP(w, r)

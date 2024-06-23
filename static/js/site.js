@@ -9,14 +9,12 @@
             }),
             method: 'POST',
             contentType: "application/json; charset=utf-8",
-            dataType: "json"
+            dataType: "json",
+            xhrFields: { withCredentials: true }
         }).done(function (res) {
-            window.accessToken = res.token;
-            $.ajaxSetup({ headers: { 'Authorization': 'Bearer ' + res.token } });
-            const loggedInName = usr || textarea('username_login');
-            document.title = document.title.replace(/\[(.*)\]/, '[' + loggedInName + ']');
-            $(document.body).addClass('loggedin');
-                resolve(loggedInName);
+            const loggedInName = getCookie('user');
+            initUser();
+            resolve(loggedInName);
         }).fail(function (res) {
             console.log(res);
             reject(res);
@@ -44,8 +42,7 @@ function createUser() {
 }
 
 function signout() {
-    delete window.accessToken
-    $.ajaxSetup({ headers: { 'Authorization': '' } });
+    removeCookie('user');
     document.title = document.title.replace(/\[(.*)\]/, '[public]');
     $(document.body).removeClass('loggedin');
 }
@@ -66,4 +63,21 @@ function alert(message, title) {
         '<button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
         '</div><div class="toast-body">' + message + '</div>');
     $('.toast').toast({ delay: 5000 }).toast('show');
+}
+
+function initUser() {
+    if (getCookie('user')) {
+        document.title = document.title.replace(/\[(.*)\]/, '[' + getCookie('user') + ']');
+        $(document.body).addClass('loggedin');
+    }
+}
+
+function getCookie(name) {
+    var value = "; " + document.cookie;
+    var parts = value.split("; " + name + "=");
+    if (parts.length == 2) return parts.pop().split(";").shift();
+}
+
+function removeCookie(name) {
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
 }

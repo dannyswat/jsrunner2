@@ -31,6 +31,13 @@ func main() {
 	jwtContext := &middlewares.JWTContext{}
 	router.Use(jwtContext.JWT)
 
+	router.Use(func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			h.ServeHTTP(w, r)
+		})
+	})
+
 	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	router.Get("/", handlers.Index)

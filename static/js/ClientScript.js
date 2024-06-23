@@ -39,7 +39,12 @@ function preview(value) {
 
 function list(defValue) {
 	return new Promise(function (resolve) {
-		$.getJSON('/scripts', function (res) {
+		$.ajax({
+			url: '/scripts',
+			method: 'GET',
+			dataType: 'json',
+			xhrFields: { withCredentials: true }
+		}).done(function (res) {
 			var ddl = document.getElementById('scriptList');
 			var origValue = defValue || ddl.options[ddl.selectedIndex].value;
 			while (ddl.options.length > 1) ddl.options.remove(1);
@@ -51,7 +56,7 @@ function list(defValue) {
 				ddl.appendChild(opt);
 			}
 			resolve();
-		}, function (res) {
+		}).fail(function (res, err) {
 			console.log(res);
 			alert('Unable to retrieve the script list');
 			resolve();
@@ -77,16 +82,21 @@ function load() {
 			resolve();
 			return;
 		}
-		$.getJSON('/scripts/' + template(), function (res) {
+		$.ajax({
+			url: '/scripts/' + template(),
+			method: 'GET',
+			dataType: 'json',
+			xhrFields: { withCredentials: true }
+		}).done(function (res) {
 			script(res.script);
 			textarea('scriptKey', res.key);
 			textarea('scriptName', res.name);
 			resolve();
-		}, function (res) {
+		}).fail(function (res, err) {
 			console.log(res);
 			alert('Unable to retrieve the script ' + template());
 			resolve();
-		})
+		});
 	});
 }
 
@@ -95,7 +105,8 @@ function deleteFile() {
 		if (!template()) return;
 		$.ajax({
 			url: '/scripts/' + template(),
-			method: 'DELETE'
+			method: 'DELETE',
+			xhrFields: { withCredentials: true }
 		}).done(function () {
 			alert('Deleted successfully!', 'Message');
 			resolve();
@@ -117,7 +128,8 @@ function save() {
 			method: 'POST',
 			data: JSON.stringify({ Key: textarea('scriptKey'), Name: textarea('scriptName'), Script: script() }),
 			contentType: "application/json; charset=utf-8",
-			dataType: "json"
+			dataType: "json",
+			xhrFields: { withCredentials: true }
 		}).done(function () {
 			alert('Saved successfully!', 'Message');
 			resolve();
