@@ -50,6 +50,7 @@ func main() {
 
 	router.Post("/auth/login", handlers.Login)
 	router.Post("/auth/register", handlers.Register)
+	router.Get("/auth/publickey", handlers.PublicKey)
 
 	port := os.Getenv("PORT")
 	if port == "" {

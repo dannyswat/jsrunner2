@@ -1,8 +1,13 @@
 package handlers
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/ecdh"
+	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,10 +27,34 @@ import (
 type LoginRequest struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
+	Key      string `json:"key"`
 }
 
 type LoginToken struct {
 	Token string `json:"token"`
+}
+
+type PublicKeyResponse struct {
+	Key string `json:"key"`
+}
+
+func PublicKey(w http.ResponseWriter, r *http.Request) {
+	_, publicKey, err := security.LoadECDSAKeyPair()
+	if err != nil {
+		_, publicKey, err = security.GenerateECDSAKeyAndSave()
+		if err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			return
+		}
+	}
+	ecdhKey, err := publicKey.ECDH()
+	if err != nil {
+		render.Status(r, http.StatusInternalServerError)
+		return
+	}
+	render.JSON(w, r, &PublicKeyResponse{
+		Key: base64.StdEncoding.EncodeToString(ecdhKey.Bytes()),
+	})
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +67,72 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
+	privateKey, _, err := security.LoadECDSAKeyPair()
+	if err != nil {
+		privateKey, _, err = security.GenerateECDSAKeyAndSave()
+		if err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			return
+		}
+	}
+	if len(model.Key) > 0 {
+		log.Println("Start decoding password")
+		ecdhKey, err := privateKey.ECDH()
+		if err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			return
+		}
+		log.Println("Get ECDH key")
+		bytesPubKey, err := base64.StdEncoding.DecodeString(model.Key)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Println("Decode user key")
+		remotePubKey, err := ecdh.P256().NewPublicKey(bytesPubKey)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Println("Read user key")
+		sharedKey, err := ecdhKey.ECDH(remotePubKey)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Printf("Derive user key %d\n", len(sharedKey))
+		aesCipher, err := aes.NewCipher(sharedKey)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Println("Init AES")
+		pwdBytes, err := base64.StdEncoding.DecodeString(model.Password)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Printf("Decode password %d\n", len(pwdBytes))
+		aesGcm, err := cipher.NewGCM(aesCipher)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Println("Init AES-GCM")
+		nonceSize := aesGcm.NonceSize()
+		log.Printf("Nonce size: %d", nonceSize)
+		nonce, cipherText := pwdBytes[:nonceSize], pwdBytes[nonceSize:]
+		log.Printf("%s %s", nonce, cipherText)
+		plainText, err := aesGcm.Open(nil, nonce, cipherText, nil)
+		log.Println("Plain text: " + string(plainText))
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			return
+		}
+		log.Println("Decrypt password")
+		model.Password = string(plainText)
+	}
+	log.Println("Password decoded " + model.Password)
 	pwdFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err != nil {
 		render.Status(r, http.StatusUnauthorized)
@@ -60,14 +155,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		"exp":                 time.Now().Add(time.Hour * 12).Unix(),
 		"iat":                 time.Now().Unix(),
 	})
-	privateKey, _, err := security.LoadECDSAKeyPair()
-	if err != nil {
-		privateKey, _, err = security.GenerateECDSAKeyAndSave()
-		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
-			return
-		}
-	}
+
 	jwtTokenString, err := jwtToken.SignedString(privateKey)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
