@@ -4,10 +4,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 
 	"jsrunner-server/config"
 	"jsrunner-server/middlewares"
+	"jsrunner-server/models"
 	"jsrunner-server/security"
 	"jsrunner-server/utils"
 )
@@ -35,7 +37,46 @@ type LoginToken struct {
 }
 
 type PublicKeyResponse struct {
-	Key string `json:"key"`
+	Key       string `json:"key"`
+	Timestamp string `json:"timestamp"`
+}
+
+func decryptPassword(pwdCipherText string, publicKey string, privateKey ecdsa.PrivateKey) (string, error) {
+	ecdhKey, err := privateKey.ECDH()
+	if err != nil {
+		return "", models.NewServerError("Failed to convert ECDH key")
+	}
+	bytesPubKey, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		return "", models.NewUserError("Failed to decode base64 public key")
+	}
+	remotePubKey, err := ecdh.P256().NewPublicKey(bytesPubKey)
+	if err != nil {
+		return "", models.NewUserError("Invalid public key")
+	}
+	sharedKey, err := ecdhKey.ECDH(remotePubKey)
+	if err != nil {
+		return "", models.NewUserError("Failed to derive encryption key")
+	}
+	aesCipher, err := aes.NewCipher(sharedKey)
+	if err != nil {
+		return "", models.NewUserError("Failed to create AES cipher")
+	}
+	pwdBytes, err := base64.StdEncoding.DecodeString(pwdCipherText)
+	if err != nil {
+		return "", models.NewUserError("Failed to decode the base64 password")
+	}
+	aesGcm, err := cipher.NewGCM(aesCipher)
+	if err != nil {
+		return "", models.NewUserError("Failed to create AES-GCM")
+	}
+	nonceSize := aesGcm.NonceSize()
+	nonce, cipherText := pwdBytes[:nonceSize], pwdBytes[nonceSize:]
+	plainText, err := aesGcm.Open(nil, nonce, cipherText, nil)
+	if err != nil {
+		return "", models.NewUserError("Failed to decrypt the password")
+	}
+	return string(plainText), nil
 }
 
 func PublicKey(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +94,8 @@ func PublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render.JSON(w, r, &PublicKeyResponse{
-		Key: base64.StdEncoding.EncodeToString(ecdhKey.Bytes()),
+		Key:       base64.StdEncoding.EncodeToString(ecdhKey.Bytes()),
+		Timestamp: time.Now().UTC().Format("yyyyMMddHHmmss"),
 	})
 }
 
@@ -61,10 +103,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	model := &LoginRequest{}
 	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
 		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, models.ErrorResponse("Invalid request"))
 		return
 	}
 	if len(model.UserName) == 0 || len(model.Password) == 0 {
-		render.Status(r, http.StatusBadRequest)
+		render.Status(r, http.StatusUnauthorized)
+		render.JSON(w, r, models.ErrorResponse("Invalid username or password."))
 		return
 	}
 	privateKey, _, err := security.LoadECDSAKeyPair()
@@ -76,66 +120,24 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(model.Key) > 0 {
-		log.Println("Start decoding password")
-		ecdhKey, err := privateKey.ECDH()
+		model.Password, err = decryptPassword(model.Password, model.Key, *privateKey)
 		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
+			if errors.Is(err, &models.UserError{}) {
+				render.Status(r, http.StatusBadRequest)
+			} else {
+				render.Status(r, http.StatusInternalServerError)
+			}
+			render.JSON(w, r, models.ErrorResponse(err.Error()))
 			return
 		}
-		log.Println("Get ECDH key")
-		bytesPubKey, err := base64.StdEncoding.DecodeString(model.Key)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Println("Decode user key")
-		remotePubKey, err := ecdh.P256().NewPublicKey(bytesPubKey)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Println("Read user key")
-		sharedKey, err := ecdhKey.ECDH(remotePubKey)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Printf("Derive user key %d\n", len(sharedKey))
-		aesCipher, err := aes.NewCipher(sharedKey)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Println("Init AES")
-		pwdBytes, err := base64.StdEncoding.DecodeString(model.Password)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Printf("Decode password %d\n", len(pwdBytes))
-		aesGcm, err := cipher.NewGCM(aesCipher)
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Println("Init AES-GCM")
-		nonceSize := aesGcm.NonceSize()
-		log.Printf("Nonce size: %d", nonceSize)
-		nonce, cipherText := pwdBytes[:nonceSize], pwdBytes[nonceSize:]
-		log.Printf("%s %s", nonce, cipherText)
-		plainText, err := aesGcm.Open(nil, nonce, cipherText, nil)
-		log.Println("Plain text: " + string(plainText))
-		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			return
-		}
-		log.Println("Decrypt password")
-		model.Password = string(plainText)
+	} else {
+		render.JSON(w, r, models.ErrorResponse("Password must be encrypted."))
+		render.Status(r, http.StatusBadRequest)
+		return
 	}
-	log.Println("Password decoded " + model.Password)
 	pwdFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err != nil {
-		render.Status(r, http.StatusUnauthorized)
+		render.Status(r, http.StatusInternalServerError)
 		return
 	}
 	pwdByte, err := io.ReadAll(pwdFile)
@@ -146,6 +148,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	pwdMatch, err := argon2id.ComparePasswordAndHash(model.Password, string(pwdByte))
 
 	if err != nil || !pwdMatch {
+		render.JSON(w, r, models.ErrorResponse("Invalid username or password."))
 		render.Status(r, http.StatusUnauthorized)
 		return
 	}
