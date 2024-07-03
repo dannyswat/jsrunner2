@@ -41,6 +41,8 @@ type PublicKeyResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
+const TimestampFormat = "20060102150405"
+
 func decryptPassword(pwdCipherText string, publicKey string, privateKey ecdsa.PrivateKey) (string, error) {
 	ecdhKey, err := privateKey.ECDH()
 	if err != nil {
@@ -95,7 +97,7 @@ func PublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 	render.JSON(w, r, &PublicKeyResponse{
 		Key:       base64.StdEncoding.EncodeToString(ecdhKey.Bytes()),
-		Timestamp: time.Now().UTC().Format("yyyyMMddHHmmss"),
+		Timestamp: time.Now().UTC().Format(TimestampFormat),
 	})
 }
 
@@ -120,7 +122,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(model.Key) > 0 {
-		model.Password, err = decryptPassword(model.Password, model.Key, *privateKey)
+		pwdText, err := decryptPassword(model.Password, model.Key, *privateKey)
 		if err != nil {
 			if errors.Is(err, &models.UserError{}) {
 				render.Status(r, http.StatusBadRequest)
@@ -129,6 +131,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			}
 			render.JSON(w, r, models.ErrorResponse(err.Error()))
 			return
+		}
+		if len(pwdText) > len(TimestampFormat) {
+			timestamp, pwdText := pwdText[:len(TimestampFormat)], pwdText[len(TimestampFormat):]
+			model.Password = pwdText
+			timeValue, err := time.Parse(TimestampFormat, timestamp)
+			if err != nil || timeValue.Unix() < time.Now().UTC().Unix() && timeValue.Unix()+600 < time.Now().UTC().Unix() {
+				render.JSON(w, r, models.ErrorResponse("Invalid timestamp"))
+				return
+			}
 		}
 	} else {
 		render.JSON(w, r, models.ErrorResponse("Password must be encrypted."))

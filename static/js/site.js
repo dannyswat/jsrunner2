@@ -9,7 +9,7 @@ function login(usr, pwd) {
             const serverPublicKey = await window.crypto.subtle.importKey("raw", fromBase64(window.publicECKey), { name: "ECDH", namedCurve: "P-256" }, true, []);
             const derived = await window.crypto.subtle.deriveKey({ name: "ECDH", namedCurve: "P-256", public: serverPublicKey },
                 key.privateKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-            const pwdBytes = encoder.encode(pwd || textarea('password_login'));
+            const pwdBytes = encoder.encode(window.serverTime + (pwd || textarea('password_login')));
             const ivBuf = randomIV();
             const encryptedPwd = await window.crypto.subtle.encrypt({
                 name: "AES-GCM", iv: ivBuf
@@ -49,6 +49,7 @@ function loadPublicKey() {
         dataType: 'json'
     }).done(function (res) {
         window.publicECKey = res.key;
+        window.serverTime = res.timestamp;
     })
 }
 
