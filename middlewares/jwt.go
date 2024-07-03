@@ -40,13 +40,8 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 		} else if cookieUserId != nil && authCookie != nil {
 			jwtTokenString = authCookie.Value
 		} else {
-			log.Println("Anonymous")
 			if authCookie != nil {
-				http.SetCookie(w, &http.Cookie{
-					Name:   "auth",
-					Value:  "",
-					MaxAge: -1,
-				})
+				removeAuthCookie(w)
 			}
 			next.ServeHTTP(w, r)
 			return
@@ -61,10 +56,12 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 			})
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				removeAuthCookie(w)
 				return
 			}
 			if !jwtToken.Valid {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				removeAuthCookie(w)
 				return
 			}
 			authUserId := jwtToken.Claims.(jwt.MapClaims)[UserIdKey].(string)
@@ -72,16 +69,7 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 
 			if authUserId != cookieUserId.Value {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				http.SetCookie(w, &http.Cookie{
-					Name:   "auth",
-					Value:  "",
-					MaxAge: -1,
-				})
-				http.SetCookie(w, &http.Cookie{
-					Name:   "user",
-					Value:  "",
-					MaxAge: -1,
-				})
+				removeAuthCookie(w)
 				return
 			}
 
@@ -92,5 +80,18 @@ func (c JWTContext) JWT(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		}
 
+	})
+}
+
+func removeAuthCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:   "auth",
+		Value:  "",
+		MaxAge: -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:   "user",
+		Value:  "",
+		MaxAge: -1,
 	})
 }
