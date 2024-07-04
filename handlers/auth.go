@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -86,13 +87,13 @@ func PublicKey(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_, publicKey, err = security.GenerateECDSAKeyAndSave()
 		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
+			serverError(w, r, err)
 			return
 		}
 	}
 	ecdhKey, err := publicKey.ECDH()
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
 		return
 	}
 	render.JSON(w, r, &PublicKeyResponse{
@@ -104,20 +105,18 @@ func PublicKey(w http.ResponseWriter, r *http.Request) {
 func Login(w http.ResponseWriter, r *http.Request) {
 	model := &LoginRequest{}
 	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, models.ErrorResponse("Invalid request"))
+		unauthorized(w, r)
 		return
 	}
 	if len(model.UserName) == 0 || len(model.Password) == 0 {
-		render.Status(r, http.StatusUnauthorized)
-		render.JSON(w, r, models.ErrorResponse("Invalid username or password."))
+		unauthorized(w, r)
 		return
 	}
 	privateKey, _, err := security.LoadECDSAKeyPair()
 	if err != nil {
 		privateKey, _, err = security.GenerateECDSAKeyAndSave()
 		if err != nil {
-			render.Status(r, http.StatusInternalServerError)
+			serverError(w, r, err)
 			return
 		}
 	}
@@ -125,11 +124,10 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		pwdText, err := decryptPassword(model.Password, model.Key, *privateKey)
 		if err != nil {
 			if errors.Is(err, &models.UserError{}) {
-				render.Status(r, http.StatusBadRequest)
-			} else {
-				render.Status(r, http.StatusInternalServerError)
+				unauthorized(w, r)
+				return
 			}
-			render.JSON(w, r, models.ErrorResponse(err.Error()))
+			serverError(w, r, err)
 			return
 		}
 		if len(pwdText) > len(TimestampFormat) {
@@ -137,30 +135,29 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			model.Password = pwdText
 			timeValue, err := time.Parse(TimestampFormat, timestamp)
 			if err != nil || timeValue.Unix() < time.Now().UTC().Unix() && timeValue.Unix()+600 < time.Now().UTC().Unix() {
-				render.JSON(w, r, models.ErrorResponse("Invalid timestamp"))
+				unauthorized(w, r)
 				return
 			}
 		}
 	} else {
-		render.JSON(w, r, models.ErrorResponse("Password must be encrypted."))
-		render.Status(r, http.StatusBadRequest)
+		unauthorized(w, r)
 		return
 	}
 	pwdFile, err := os.Open(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
 		return
 	}
 	pwdByte, err := io.ReadAll(pwdFile)
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
+		return
 	}
 
 	pwdMatch, err := argon2id.ComparePasswordAndHash(model.Password, string(pwdByte))
 
 	if err != nil || !pwdMatch {
-		render.JSON(w, r, models.ErrorResponse("Invalid username or password."))
-		render.Status(r, http.StatusUnauthorized)
+		unauthorized(w, r)
 		return
 	}
 
@@ -172,7 +169,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	jwtTokenString, err := jwtToken.SignedString(privateKey)
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
 		return
 	}
 	utils.CreateFolderIfNotExists(filepath.FromSlash(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName)))
@@ -202,32 +199,56 @@ type RegisterRequest struct {
 func Register(w http.ResponseWriter, r *http.Request) {
 	model := &RegisterRequest{}
 	if err := json.NewDecoder(r.Body).Decode(model); err != nil {
-		render.Status(r, http.StatusBadRequest)
+		badRequest(w, r, "invalid request")
 		return
 	}
-	if len(model.UserName) == 0 || len(model.Password) == 0 || strings.ToLower(model.UserName) == "public" {
-		render.Status(r, http.StatusBadRequest)
+	if len(model.UserName) == 0 || len(model.Password) == 0 {
+		badRequest(w, r, "empty username or password")
 		return
 	}
-	_, err := os.Stat(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
+	lowerUserName := strings.ToLower(model.UserName)
+	if lowerUserName == config.PublicUser {
+		badRequest(w, r, "invalid username")
+		return
+	}
+	if matched, err := regexp.MatchString("^[a-z0-9_]{3,20}$", lowerUserName); err != nil || !matched {
+		badRequest(w, r, "invalid username")
+		return
+	}
+	_, err := os.Stat(filepath.FromSlash(config.DataStorePath + config.UserPath + lowerUserName + ".pwd"))
 	if err == nil {
-		render.Status(r, http.StatusBadRequest)
+		badRequest(w, r, "invalid username")
 		return
 	}
-	pwdFile, err := os.Create(filepath.FromSlash(config.DataStorePath + config.UserPath + strings.ToLower(model.UserName) + ".pwd"))
+	pwdFile, err := os.Create(filepath.FromSlash(config.DataStorePath + config.UserPath + lowerUserName + ".pwd"))
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
 		return
 	}
+	defer pwdFile.Close()
 	hash, err := argon2id.CreateHash(model.Password, argon2id.DefaultParams)
 	if err != nil {
-		render.Status(r, http.StatusInternalServerError)
+		serverError(w, r, err)
 		return
 	}
 	pwdFile.Write([]byte(hash))
-	pwdFile.Close()
 
-	utils.CreateFolderIfNotExists(filepath.FromSlash(config.DataStorePath + config.ScriptPath + strings.ToLower(model.UserName)))
+	utils.CreateFolderIfNotExists(filepath.FromSlash(config.DataStorePath + config.ScriptPath + lowerUserName))
 
 	render.Status(r, http.StatusCreated)
+}
+
+func unauthorized(w http.ResponseWriter, r *http.Request) {
+	render.JSON(w, r, models.ErrorResponse("invalid username or password."))
+	render.Status(r, http.StatusUnauthorized)
+}
+
+func serverError(w http.ResponseWriter, r *http.Request, err error) {
+	render.Status(r, http.StatusInternalServerError)
+	render.JSON(w, r, models.ErrorResponse(err.Error()))
+}
+
+func badRequest(w http.ResponseWriter, r *http.Request, msg string) {
+	render.Status(r, http.StatusBadRequest)
+	render.JSON(w, r, models.ErrorResponse(msg))
 }
