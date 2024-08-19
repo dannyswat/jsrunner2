@@ -4,6 +4,10 @@
 
 A simple web app to run javascript locally with online script storage. You can create your own account and save your own javascripts for your work. Passwords are securely hashed with Argon2id but no other security measures have been implemented. Please do not rely on it. :)
 
+## Demo
+
+[https://jsrunner2.azurewebsites.net/](https://jsrunner2.azurewebsites.net/)
+
 ## Usage
 
 - Generate code or scripts from lines of input
