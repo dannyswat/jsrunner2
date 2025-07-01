@@ -1,28 +1,29 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.21-alpine as base
+FROM golang:1.24-alpine AS base
 
 # Set destination for COPY
 WORKDIR /gobuild
 
 # Download Go modules
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download && go mod verify
 
 # Copy the source code. Note the slash at the end, as explained in
 # https://docs.docker.com/reference/dockerfile/#copy
 COPY config/*.go ./config/
 COPY handlers/*.go ./handlers/
 COPY middlewares/*.go ./middlewares/
+COPY models/*.go ./models/
 COPY security/*.go ./security/
 COPY utils/*.go ./utils/
 COPY main.go ./
 COPY *.html  ./
 COPY static/ ./static/
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /jsrunner-server
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /jsrunner-server  -ldflags="-s -w" ./main.go
 
-FROM centos:8
+FROM alpine:latest
 
 COPY --from=base /jsrunner-server /jsrunner-server
 COPY --from=base /gobuild/*.html /
